@@ -29,7 +29,7 @@ theme: smartblue
 
 ## 2. 环境准备
 
-## 2.1 克隆 koa-compose 项目
+### 2.1 克隆 koa-compose 项目
 
 ```bash
 # 可以直接克隆我的仓库，我的仓库保留的 compose 仓库的 git 记录
