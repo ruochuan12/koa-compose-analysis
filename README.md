@@ -3,7 +3,7 @@ highlight: darcula
 theme: smartblue
 ---
 
-# koa-compose-analysis
+# 50行 koa-compose 源码，面试官常考的中间件原理原来没有那么难？
 
 ## 1. 前言
 
@@ -11,11 +11,15 @@ theme: smartblue
 
 之前写的[《学习源码整体架构系列》](https://juejin.cn/column/6960551178908205093) 包含`jQuery`、`underscore`、`lodash`、`vuex`、`sentry`、`axios`、`redux`、`koa`、`vue-devtools`、`vuex4`十篇源码文章。
 
+最新的两篇是：
+[Vue 3.2 发布了，那尤雨溪是怎么发布 Vue.js 的？](https://juejin.cn/post/6997943192851054606)
+[初学者也能看懂的 Vue3 源码中那些实用的基础工具函数](https://juejin.cn/post/6994976281053888519)
+
 写相对很难的源码，耗费了自己的时间和精力，也没收获多少阅读点赞，其实是一件挺受打击的事情。从阅读量和读者受益方面来看，不能促进作者持续输出文章。
 
 所以转变思路，写一些相对通俗易懂的文章。**其实源码也不是想象的那么难，至少有很多看得懂**。
 
-之前写过 koa 源码文章比较长，大概率看不完。[学习 koa 源码的整体架构，浅析koa洋葱模型原理和co原理](https://juejin.cn/post/6844904088220467213)
+之前写过 koa 源码文章[学习 koa 源码的整体架构，浅析koa洋葱模型原理和co原理](https://juejin.cn/post/6844904088220467213)比较长，读者朋友大概率看不完，所以本文从`koa-compose`50行源码讲述。
 
 本文涉及到的 [koa-compose 仓库](https://github.com/koajs/compose) 文件，整个`index.js`文件代码行数虽然不到 `50` 行，而且测试用例`test/test.js`文件 `300` 余行，但非常值得我们学习。
 
@@ -88,19 +92,31 @@ git subtree add --prefix=compose https://github.com/koajs/compose.git main
 
 [更多 nodejs 调试相关 可以查看官方文档](https://code.visualstudio.com/docs/nodejs/nodejs-debugging)
 
-TODO: 顺便提一下按钮。
+顺便提一下几个调试相关按钮。
+
+- 1. 继续（F5）
+- 2. 单步跳过（F10）
+- 3. 单步调试（F11）
+- 4. 单步跳出（Shift + F11）
+- 5. 重启（Ctrl + Shift + F5）
+- 6. 断开链接（Shift + F5）
+
+接下来，我们跟着测试用例学源码。
 
 ## 3. 跟着测试用例学源码
 
-提一个测试用例小技巧：我们可以在第一个测试用例处加上`only`修饰。
+分享一个测试用例小技巧：我们可以在测试用例处加上`only`修饰。
 
 ```js
+// 例如
 it.only('should work', async () => {})
 ```
 
 这样我们就可以只执行当前的测试用例，不关心其他的，不会干扰调试。
 
 ### 3.1 正常流程
+
+打开 `compose/test/test.js` 文件，看第一个测试用例。
 
 ```js
 // compose/test/test.js
@@ -206,10 +222,16 @@ function compose (middleware) {
 
 ```js
 function dispatch (i) {
+  // 一个函数中多次调用报错
+  // await next()
+  // await next()
   if (i <= index) return Promise.reject(new Error('next() called multiple times'))
   index = i
+  // 取出数组里的 fn1, fn2, fn3...
   let fn = middleware[i]
+  // 最后 相等，next 为 undefined
   if (i === middleware.length) fn = next
+  // 直接返回 Promise.resolve()
   if (!fn) return Promise.resolve()
   try {
     return Promise.resolve(fn(context, dispatch.bind(null, i + 1)))
@@ -219,9 +241,14 @@ function dispatch (i) {
 }
 ```
 
+值得一提的是：`bind`函数是返回一个新的函数。第一个参数是函数里的this指向（如果函数不需要使用`this`，一般会写成`null`）。
+这句`fn(context, dispatch.bind(null, i + 1)`，`i + 1` 是为了 `let fn = middleware[i]` 取`middleware`中的下一个函数。
+也就是 `next` 是下一个中间件里的函数。也就能解释上文中的 `gif`图函数执行顺序。
+测试用例中数组的最终顺序是`[1,2,3,4,5,6]`。
+
 #### 3.1.3 简化 compose 便于理解
 
-省略
+自己动手调试之后，你会发现 `compose` 执行后就是类似这样的结构（省略 `try catch` 判断）。
 
 ```js
 // 这样就可能更好理解了。
@@ -244,12 +271,14 @@ const fnMiddleware = function(context){
 };
 ```
 
->也就是说`koa-compose`返回的是一个`Promise`，`Promise`中取出第一个函数，传入`context`和第一个`next`函数来执行。<br>
-第一个`next`函数里也是返回的是一个`Promise`，`Promise`中取出第二个函数，传入`context`和第二个`next`函数来执行。<br>
-第二个`next`函数里也是返回的是一个`Promise`，`Promise`中取出第三个函数，传入`context`和第三个`next`函数来执行。<br>
+>也就是说`koa-compose`返回的是一个`Promise`，从`中间件（传入的数组）`中取出第一个函数，传入`context`和第一个`next`函数来执行。<br>
+第一个`next`函数里也是返回的是一个`Promise`，从`中间件（传入的数组）`中取出第二个函数，传入`context`和第二个`next`函数来执行。<br>
+第二个`next`函数里也是返回的是一个`Promise`，从`中间件（传入的数组）`中取出第三个函数，传入`context`和第三个`next`函数来执行。<br>
 第三个...<br>
 以此类推。最后一个中间件中有调用`next`函数，则返回`Promise.resolve`。如果没有，则不执行`next`函数。
 这样就把所有中间件串联起来了。这也就是我们常说的洋葱模型。<br>
+
+![洋葱模型图如下图所示：](./images/middleware.png)
 
 **不得不说非常惊艳，“玩还是大神会玩”**。
 
@@ -283,6 +312,16 @@ it('should catch downstream errors', async () => {
 })
 ```
 
+相信理解了第一个测试用例和 `compose` 函数，也是比较好理解这个测试用例了。这一部分其实就是对应的代码在这里。
+
+```js
+try {
+    return Promise.resolve(fn(context, dispatch.bind(null, i + 1)))
+} catch (err) {
+  return Promise.reject(err)
+}
+```
+
 ### 3.3 next 函数不能调用多次
 
 ```js
@@ -300,8 +339,31 @@ it('should throw if next() is called multiple times', () => {
 })
 ```
 
-其他还有很多测试用例可以按照文中方法自行调试，相信学会了调试后觉得源码也没有想象中的那么难。
+这一块对应的则是：
+
+```js
+index = -1
+dispatch(0)
+function dispatch (i) {
+  if (i <= index) return Promise.reject(new Error('next() called multiple times'))
+  index = i
+}
+```
+
+调用两次后 `i` 和 `index` 都为 `1`，所以会报错。
+
+`compose/test/test.js`文件中总共 300余行，还有很多测试用例可以按照文中方法自行调试。
 
 ## 4. 总结
 
-开源项目，一般都会有很全面的测试用例。
+虽然`koa-compose`源码 50行 不到，但如果是第一次看源码调试源码，还是会有难度的。其中混杂着高阶函数、闭包、`Promise`、`bind`等基础知识。
+
+通过本文，我们熟悉了 `koa-compose` 中间件常说的洋葱模型，学会了部分 [`jest`](https://github.com/facebook/jest) 用法，同时也学会了如何使用现成的测试用例去调试源码。
+
+相信学会了通过测试用例调试源码后，会觉得源码也没有想象中的那么难。
+
+开源项目，一般都会有很全面的测试用例。除了可以给我们学习源码调试源码带来方便的同时，也可以给我们带来的启发：自己工作中的项目，也可以逐步引入测试工具，比如 [`jest`](https://github.com/facebook/jest)。
+
+此外，读开源项目源码是我们学习业界大牛设计思想和源码实现等比较好的方式。
+
+看完本文，如果你有余力，可以继续看我的 `koa-compose` 源码文章：[学习 koa 源码的整体架构，浅析koa洋葱模型原理和co原理](https://juejin.cn/post/6844904088220467213)
