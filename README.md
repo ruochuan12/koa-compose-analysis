@@ -9,10 +9,10 @@ theme: smartblue
 
 大家好，我是[若川](https://lxchuan12.gitee.io)。欢迎关注我的[公众号若川视野](https://p1-jj.byteimg.com/tos-cn-i-t2oaga2asx/gold-user-assets/2019/12/13/16efe57ddc7c9eb3~tplv-t2oaga2asx-image.image "https://p1-jj.byteimg.com/tos-cn-i-t2oaga2asx/gold-user-assets/2019/12/13/16efe57ddc7c9eb3~tplv-t2oaga2asx-image.image")，最近组织了[**源码共读活动**《1个月，200+人，一起读了4周源码》](https://mp.weixin.qq.com/s?__biz=MzA5MjQwMzQyNw==&mid=2650756550&idx=1&sn=9acc5e30325963e455f53ec2f64c1fdd&chksm=8866564abf11df5c41307dba3eb84e8e14de900e1b3500aaebe802aff05b0ba2c24e4690516b&token=917686367&lang=zh_CN#rd)，感兴趣的可以加我微信 [ruochuan12](https://mp.weixin.qq.com/s?__biz=MzA5MjQwMzQyNw==&mid=2650756550&idx=1&sn=9acc5e30325963e455f53ec2f64c1fdd&chksm=8866564abf11df5c41307dba3eb84e8e14de900e1b3500aaebe802aff05b0ba2c24e4690516b&token=917686367&lang=zh_CN#rd) 参与，长期交流学习。
 
-之前写的[《学习源码整体架构系列》](https://juejin.cn/column/6960551178908205093) 包含`jQuery`、`underscore`、`lodash`、`vuex`、`sentry`、`axios`、`redux`、`koa`、`vue-devtools`、`vuex4`十篇源码文章。
+之前写的[《学习源码整体架构系列》](https://juejin.cn/column/6960551178908205093) 包含`jQuery`、`underscore`、`lodash`、`vuex`、`sentry`、`axios`、`redux`、`koa`、`vue-devtools`、`vuex4`十余篇源码文章。其中最新的两篇是：
 
-最新的两篇是：
 [Vue 3.2 发布了，那尤雨溪是怎么发布 Vue.js 的？](https://juejin.cn/post/6997943192851054606)
+
 [初学者也能看懂的 Vue3 源码中那些实用的基础工具函数](https://juejin.cn/post/6994976281053888519)
 
 写相对很难的源码，耗费了自己的时间和精力，也没收获多少阅读点赞，其实是一件挺受打击的事情。从阅读量和读者受益方面来看，不能促进作者持续输出文章。
@@ -36,6 +36,8 @@ theme: smartblue
 ## 2. 环境准备
 
 ### 2.1 克隆 koa-compose 项目
+
+[本文仓库地址 koa-compose-analysis](https://github.com/lxchuan12/koa-compose-analysis.git)，求个`star`~
 
 ```bash
 # 可以直接克隆我的仓库，我的仓库保留的 compose 仓库的 git 记录
@@ -272,10 +274,10 @@ const fnMiddleware = function(context){
 ```
 
 >也就是说`koa-compose`返回的是一个`Promise`，从`中间件（传入的数组）`中取出第一个函数，传入`context`和第一个`next`函数来执行。<br>
-第一个`next`函数里也是返回的是一个`Promise`，从`中间件（传入的数组）`中取出第二个函数，传入`context`和第二个`next`函数来执行。<br>
-第二个`next`函数里也是返回的是一个`Promise`，从`中间件（传入的数组）`中取出第三个函数，传入`context`和第三个`next`函数来执行。<br>
-第三个...<br>
-以此类推。最后一个中间件中有调用`next`函数，则返回`Promise.resolve`。如果没有，则不执行`next`函数。
+>第一个`next`函数里也是返回的是一个`Promise`，从`中间件（传入的数组）`中取出第二个函数，传入`context`和第二个`next`函数来执行。<br>
+>第二个`next`函数里也是返回的是一个`Promise`，从`中间件（传入的数组）`中取出第三个函数，传入`context`和第三个`next`函数来执行。<br>
+>第三个...<br>
+>以此类推。最后一个中间件中有调用`next`函数，则返回`Promise.resolve`。如果没有，则不执行`next`函数。
 这样就把所有中间件串联起来了。这也就是我们常说的洋葱模型。<br>
 
 ![洋葱模型图如下图所示：](./images/middleware.png)
@@ -360,10 +362,10 @@ function dispatch (i) {
 
 通过本文，我们熟悉了 `koa-compose` 中间件常说的洋葱模型，学会了部分 [`jest`](https://github.com/facebook/jest) 用法，同时也学会了如何使用现成的测试用例去调试源码。
 
-相信学会了通过测试用例调试源码后，会觉得源码也没有想象中的那么难。
+**相信学会了通过测试用例调试源码后，会觉得源码也没有想象中的那么难**。
 
 开源项目，一般都会有很全面的测试用例。除了可以给我们学习源码调试源码带来方便的同时，也可以给我们带来的启发：自己工作中的项目，也可以逐步引入测试工具，比如 [`jest`](https://github.com/facebook/jest)。
 
 此外，读开源项目源码是我们学习业界大牛设计思想和源码实现等比较好的方式。
 
-看完本文，如果你有余力，可以继续看我的 `koa-compose` 源码文章：[学习 koa 源码的整体架构，浅析koa洋葱模型原理和co原理](https://juejin.cn/post/6844904088220467213)
+看完本文，非常希望能自己动手实践调试源码去学习，容易吸收消化。另外，如果你有余力，可以继续看我的 `koa-compose` 源码文章：[学习 koa 源码的整体架构，浅析koa洋葱模型原理和co原理](https://juejin.cn/post/6844904088220467213)
