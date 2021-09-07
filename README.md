@@ -15,6 +15,8 @@ theme: smartblue
 
 所以转变思路，写一些相对通俗易懂的文章。**其实源码也不是想象的那么难，至少有很多看得懂**。
 
+之前写过 koa 源码文章比较长，大概率看不完。[学习 koa 源码的整体架构，浅析koa洋葱模型原理和co原理](https://juejin.cn/post/6844904088220467213)
+
 本文涉及到的 [koa-compose 仓库](https://github.com/koajs/compose) 文件，整个`index.js`文件代码行数虽然不到 `50` 行，而且测试用例`test/test.js`文件 `300` 余行，但非常值得我们学习。
 
 歌德曾说：读一本好书，就是在和高尚的人谈话。 同理可得：读源码，也算是和作者的一种学习交流的方式。
@@ -72,10 +74,33 @@ git subtree add --prefix=compose https://github.com/koajs/compose.git main
 
 ![VSCode 调试](./images/scripts-test-debugger.png)
 
-接着会执行测试用例`test/test.js`文件。
-终端输出如下图所示。
+接着会执行测试用例`test/test.js`文件。终端输出如下图所示。
 
 ![koa-compose 测试用例输出结果](./images/jest-ternimal.png)
+
+接着我们调试 `compose/test/test.js` 文件。
+我们可以在 `45行` 打上断点，重新点击 `package.json` => `srcipts` => `test` 进入调试模式。
+如下图所示。
+
+![koa-compose 调试](./images/test-compose-debugger.png)
+
+接着按上方的按钮，继续调试。在`compose/index.js`文件中关键的地方打上断点，调试学习源码事半功倍。
+
+[更多 nodejs 调试相关 可以查看官方文档](https://code.visualstudio.com/docs/nodejs/nodejs-debugging)
+
+TODO: 顺便提一下按钮。
+
+## 3. 跟着测试用例学源码
+
+提一个测试用例小技巧：我们可以在第一个测试用例处加上`only`修饰。
+
+```js
+it.only('should work', async () => {})
+```
+
+这样我们就可以只执行当前的测试用例，不关心其他的，不会干扰调试。
+
+### 3.1 正常流程
 
 ```js
 // compose/test/test.js
@@ -89,23 +114,194 @@ const assert = require('assert')
 function wait (ms) {
   return new Promise((resolve) => setTimeout(resolve, ms || 1))
 }
-
-function isPromise (x) {
-  return x && typeof x.then === 'function'
-}
+// 分组
 describe('Koa Compose', function () {
-    // 省略
+  it.only('should work', async () => {
+    const arr = []
+    const stack = []
+
+    stack.push(async (context, next) => {
+      arr.push(1)
+      await wait(1)
+      await next()
+      await wait(1)
+      arr.push(6)
+    })
+
+    stack.push(async (context, next) => {
+      arr.push(2)
+      await wait(1)
+      await next()
+      await wait(1)
+      arr.push(5)
+    })
+
+    stack.push(async (context, next) => {
+      arr.push(3)
+      await wait(1)
+      await next()
+      await wait(1)
+      arr.push(4)
+    })
+
+    await compose(stack)({})
+    // 最后输出数组是 [1,2,3,4,5,6]
+    expect(arr).toEqual(expect.arrayContaining([1, 2, 3, 4, 5, 6]))
+  })
+}
+```
+
+大概看完这段测试用例，`context`是什么，`next`又是什么。
+
+在[`koa`的文档](https://github.com/koajs/koa/blob/master/docs/guide.md#writing-middleware)上有个非常代表性的中间件 `gif` 图。
+
+![中间件 gif 图](./images/middleware.gif)
+
+而`compose`函数作用就是把添加进中间件数组的函数按照上面 `gif` 图的顺序执行。
+
+#### 3.1.1 compose 函数
+
+简单来说，`compose` 函数主要做了两件事情。
+
+- 1. 接收一个参数，校验参数是数组，且校验数组中的每一项是函数。
+- 2. 返回一个函数，这个函数接收两个参数，分别是`context`和`next`，这个函数最后返回`Promise`。
+
+```js
+/**
+ * Compose `middleware` returning
+ * a fully valid middleware comprised
+ * of all those which are passed.
+ *
+ * @param {Array} middleware
+ * @return {Function}
+ * @api public
+ */
+function compose (middleware) {
+  // 校验传入的参数是数组，校验数组中每一项是函数
+  if (!Array.isArray(middleware)) throw new TypeError('Middleware stack must be an array!')
+  for (const fn of middleware) {
+    if (typeof fn !== 'function') throw new TypeError('Middleware must be composed of functions!')
+  }
+
+  /**
+   * @param {Object} context
+   * @return {Promise}
+   * @api public
+   */
+
+  return function (context, next) {
+    // last called middleware #
+    let index = -1
+    return dispatch(0)
+    function dispatch(i){
+      // 省略，下文讲述
+    }
+  }
+}
+```
+
+接着我们来看 `dispatch` 函数。
+
+#### 3.1.2 dispatch 函数
+
+```js
+function dispatch (i) {
+  if (i <= index) return Promise.reject(new Error('next() called multiple times'))
+  index = i
+  let fn = middleware[i]
+  if (i === middleware.length) fn = next
+  if (!fn) return Promise.resolve()
+  try {
+    return Promise.resolve(fn(context, dispatch.bind(null, i + 1)))
+  } catch (err) {
+    return Promise.reject(err)
+  }
+}
+```
+
+#### 3.1.3 简化 compose 便于理解
+
+省略
+
+```js
+// 这样就可能更好理解了。
+// simpleKoaCompose
+const [fn1, fn2, fn3] = stack;
+const fnMiddleware = function(context){
+    return Promise.resolve(
+      fn1(context, function next(){
+        return Promise.resolve(
+          fn2(context, function next(){
+              return Promise.resolve(
+                  fn3(context, function next(){
+                    return Promise.resolve();
+                  })
+              )
+          })
+        )
+    })
+  );
+};
+```
+
+>也就是说`koa-compose`返回的是一个`Promise`，`Promise`中取出第一个函数，传入`context`和第一个`next`函数来执行。<br>
+第一个`next`函数里也是返回的是一个`Promise`，`Promise`中取出第二个函数，传入`context`和第二个`next`函数来执行。<br>
+第二个`next`函数里也是返回的是一个`Promise`，`Promise`中取出第三个函数，传入`context`和第三个`next`函数来执行。<br>
+第三个...<br>
+以此类推。最后一个中间件中有调用`next`函数，则返回`Promise.resolve`。如果没有，则不执行`next`函数。
+这样就把所有中间件串联起来了。这也就是我们常说的洋葱模型。<br>
+
+**不得不说非常惊艳，“玩还是大神会玩”**。
+
+### 3.2 错误捕获
+
+```js
+it('should catch downstream errors', async () => {
+  const arr = []
+  const stack = []
+
+  stack.push(async (ctx, next) => {
+    arr.push(1)
+    try {
+      arr.push(6)
+      await next()
+      arr.push(7)
+    } catch (err) {
+      arr.push(2)
+    }
+    arr.push(3)
+  })
+
+  stack.push(async (ctx, next) => {
+    arr.push(4)
+    throw new Error()
+  })
+
+  await compose(stack)({})
+  // 输出顺序 是 [ 1, 6, 4, 2, 3 ]
+  expect(arr).toEqual([1, 6, 4, 2, 3])
 })
 ```
 
-接着我们调试 `compose/test/test.js` 文件。
-我们可以在 `45行` 打上断点，重新点击 `package.json` => `srcipts` => `test` 进入调试模式。
-如下图所示。
+### 3.3 next 函数不能调用多次
 
-![koa-compose 调试](./images/test-compose-debugger.png)
+```js
+it('should throw if next() is called multiple times', () => {
+  return compose([
+    async (ctx, next) => {
+      await next()
+      await next()
+    }
+  ])({}).then(() => {
+    throw new Error('boom')
+  }, (err) => {
+    assert(/multiple times/.test(err.message))
+  })
+})
+```
 
-接着按上方的按钮，继续调试。在`compose/index.js`文件中关键词打上断点，学习源码。
-
-## 3. 跟着测试用例学源码
+其他还有很多测试用例可以按照文中方法自行调试，相信学会了调试后觉得源码也没有想象中的那么难。
 
 ## 4. 总结
+
+开源项目，一般都会有很全面的测试用例。
