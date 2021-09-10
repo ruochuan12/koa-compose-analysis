@@ -3,7 +3,7 @@ highlight: darcula
 theme: smartblue
 ---
 
-# 50行 koa-compose 源码，面试官常考的中间件原理原来没有那么难？
+# 50行代码串行Promise，koa洋葱模型原来是这么实现？
 
 ## 1. 前言
 
